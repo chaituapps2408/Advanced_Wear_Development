@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="background_interactive">#1CA8F4</color>
+    <color name="text_time">#ffffff</color>
+    <color name="text_date">#B0E1FA</color>
+</resources>
