@@ -44,11 +44,13 @@ import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.wearable.Asset;
 import com.google.android.gms.wearable.DataApi;
 import com.google.android.gms.wearable.DataEvent;
 import com.google.android.gms.wearable.DataEventBuffer;
 import com.google.android.gms.wearable.DataItem;
+import com.google.android.gms.wearable.DataItemBuffer;
 import com.google.android.gms.wearable.DataMap;
 import com.google.android.gms.wearable.DataMapItem;
 import com.google.android.gms.wearable.Wearable;
@@ -115,9 +117,9 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
         }
     }
 
-    private class Engine extends CanvasWatchFaceService.Engine  implements DataApi.DataListener,
+    private class Engine extends CanvasWatchFaceService.Engine implements DataApi.DataListener,
             GoogleApiClient.ConnectionCallbacks,
-            GoogleApiClient.OnConnectionFailedListener{
+            GoogleApiClient.OnConnectionFailedListener {
         final Handler mUpdateTimeHandler = new EngineHandler(this);
         boolean mRegisteredTimeZoneReceiver = false;
         Paint mBackgroundPaint;
@@ -429,7 +431,7 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
 
                 if (weatherBitmap != null) {
                     float startXImage = highTempStartX - weatherBitmap.getScaledWidth(canvas) - 10;
-                    canvas.drawBitmap(weatherBitmap, startXImage, (bounds.height() / 2) +5 , mTextPaintTempLow);
+                    canvas.drawBitmap(weatherBitmap, startXImage, (bounds.height() / 2) + 5, mTextPaintTempLow);
                 }
 
             }
@@ -480,6 +482,7 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
         public void onConnected(@Nullable Bundle bundle) {
             Log.d(TAG, "Connected to Synchronized API");
             Wearable.DataApi.addListener(mGoogleApiClient, this);
+            Wearable.DataApi.getDataItems(mGoogleApiClient).setResultCallback(onConnectedResultCallback);
         }
 
         @Override
@@ -489,7 +492,7 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
 
         @Override
         public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
-            Log.d(TAG, "Connection to Synchronized API has failed :"+connectionResult.getErrorMessage());
+            Log.d(TAG, "Connection to Synchronized API has failed :" + connectionResult.getErrorMessage());
         }
 
         @Override
@@ -500,35 +503,60 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
                 if (event.getType() != DataEvent.TYPE_CHANGED) {
                     continue;
                 }
-
                 DataItem item = event.getDataItem();
+
 
                 if (!item.getUri().getPath().equals(
                         SUNSHINE_WEATHER_PATH)) {
                     continue;
                 }
 
-                DataMap dataMap = DataMapItem.fromDataItem(item).getDataMap();
-                final String latestHighestTemperature = dataMap.getString(HIGHEST_TEMPERATURE_KEY);
-                final String latestLowestTemperature = dataMap.getString(LOWEST_TEMPERATURE_KEY);
+                processConfigurationFor(item);
+            }
+        }
 
-                if (TextUtils.isEmpty(latestHighestTemperature) || TextUtils.isEmpty(latestLowestTemperature))
-                    return;
+        private final ResultCallback<DataItemBuffer> onConnectedResultCallback = new ResultCallback<DataItemBuffer>() {
+            @Override
+            public void onResult(DataItemBuffer dataItems) {
+                Log.d(TAG, "onConnectedResultCallback New Data received");
 
-                if (!latestHighestTemperature.equalsIgnoreCase(highestTemperature)
-                        || !latestLowestTemperature.equalsIgnoreCase(lowestTemperature)) {
+                for (DataItem item : dataItems) {
+                    if (!item.getUri().getPath().equals(
+                            SUNSHINE_WEATHER_PATH)) {
+                        continue;
+                    }
 
-                    final Asset iconAsset = dataMap.getAsset(WEATHER_ICON_KEY);
-
-                    new Thread(new Runnable() {
-                        @Override
-                        public void run() {
-                            updateData(latestHighestTemperature, latestLowestTemperature, iconAsset);
-                        }
-                    }).start();
+                    processConfigurationFor(item);
                 }
 
+                dataItems.release();
+                //invalidateIfNecessary();
             }
+        };
+
+        private void processConfigurationFor(DataItem item) {
+
+
+            DataMap dataMap = DataMapItem.fromDataItem(item).getDataMap();
+            final String latestHighestTemperature = dataMap.getString(HIGHEST_TEMPERATURE_KEY);
+            final String latestLowestTemperature = dataMap.getString(LOWEST_TEMPERATURE_KEY);
+
+            if (TextUtils.isEmpty(latestHighestTemperature) || TextUtils.isEmpty(latestLowestTemperature))
+                return;
+
+            if (!latestHighestTemperature.equalsIgnoreCase(highestTemperature)
+                    || !latestLowestTemperature.equalsIgnoreCase(lowestTemperature)) {
+
+                final Asset iconAsset = dataMap.getAsset(WEATHER_ICON_KEY);
+
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        updateData(latestHighestTemperature, latestLowestTemperature, iconAsset);
+                    }
+                }).start();
+            }
+
         }
 
         private void updateData(String latestHighestTemperature, String latestLowestTemperature, Asset iconAsset) {
@@ -540,6 +568,7 @@ public class SunshineWatchFace extends CanvasWatchFaceService {
             invalidate();
             updateTimer();
         }
+
         public Bitmap assetToBitmap(Asset asset) {
             if (asset == null)
                 return null;
