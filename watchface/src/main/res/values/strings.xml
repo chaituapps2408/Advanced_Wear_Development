@@ -1,7 +1,7 @@
 <resources>
     <string name="app_name">WatchFace</string>
     <string name="message">Watch face tapped</string>
-    <string name="my_digital_name">My Digital</string>
+    <string name="my_digital_name">Sunshine</string>
     <string name="hello_world">Hello World</string>
     <string name="format_temperature">%s\u00B0</string>
 </resources>
